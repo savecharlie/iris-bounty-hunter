@@ -42,10 +42,22 @@ def main():
     elif cmd == "get":
         print(json.dumps(jobs.get(a[1], {}), indent=2))
     elif cmd == "next":
-        # best interesting job: audits and higher reward first; oldest-seen tiebreak
+        # Best interesting job to fire the expensive worker on. The ranking encodes the
+        # load-bearing strategy lesson (skill): getting PAID is the bottleneck, not shipping
+        # — so DIVERSIFY OFF any payer we already have shipped-but-unresolved PRs to. A source
+        # whose 'done' jobs are piling up unpaid has ~0 marginal value until the first one pays,
+        # so prefer a FRESH payer first; THEN our depth-edge (audits); then reward; then oldest.
+        # (Forward-compatible: when a 'paid' status is added, paid jobs stop counting as backlog
+        # and the source frees up.)
         cands = [j for j in jobs.values() if j["status"] == "interesting"]
         if not cands: print("NONE"); return
-        cands.sort(key=lambda j: (j["type"] != "audit", -reward_num(j), j.get("first_seen", 0)))
+        backlog = {}
+        for j in jobs.values():
+            if j.get("status") == "done":
+                s = j.get("source", "")
+                backlog[s] = backlog.get(s, 0) + 1
+        cands.sort(key=lambda j: (backlog.get(j.get("source", ""), 0) > 0,
+                                  j["type"] != "audit", -reward_num(j), j.get("first_seen", 0)))
         print(json.dumps(cands[0], indent=2))
     elif cmd == "counts":
         c = {}
