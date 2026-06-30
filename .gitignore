@@ -1,0 +1,11 @@
+# scratch clones + transient data/logs — not part of the self-modifying SYSTEM
+bottube/
+workspace/
+logs/
+__pycache__/
+*.pyc
+catalogue.json
+runs.ledger
+last_run*.txt
+last_*_tail.txt
+*.tmp
