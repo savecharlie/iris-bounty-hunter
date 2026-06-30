@@ -9,9 +9,24 @@ Catalogue: ~/.iris_bounty_worker/catalogue.json
                         why, notes, first_seen, updated} } }
   status flow: new -> (reviewer) skip|farm|dupe|interesting -> (worker) doing -> done|failed
 """
-import json, os, re, subprocess, sys, time, datetime, urllib.request
+import json, os, re, subprocess, sys, time, datetime, urllib.request, shutil
 
 CAT = os.path.expanduser("~/.iris_bounty_worker/catalogue.json")
+
+def _resolve_gh():
+    """Find the gh CLI by absolute path. Non-interactive runtimes (cron, medic) don't
+    activate conda, so its bin isn't on PATH and a bare "gh" raises FileNotFoundError.
+    Resolve once: PATH first, then known install locations."""
+    p = shutil.which("gh")
+    if p:
+        return p
+    for cand in (os.path.expanduser("~/miniconda3/bin/gh"), "/usr/local/bin/gh",
+                 "/usr/bin/gh", os.path.expanduser("~/bin/gh")):
+        if os.path.exists(cand):
+            return cand
+    return "gh"  # last resort: fail loudly as before
+
+GH = _resolve_gh()
 
 # Standing audit-targets (our edge = finding novel bugs the swarm misses). Seeded once.
 AUDIT_TARGETS = [
@@ -61,7 +76,7 @@ def poll_rustchain_bounties(cat):
     new = 0
     try:
         out = subprocess.run(
-            ["gh", "issue", "list", "--repo", "Scottcjn/rustchain-bounties", "--state", "open",
+            [GH, "issue", "list", "--repo", "Scottcjn/rustchain-bounties", "--state", "open",
              "--label", "bounty", "--limit", "100", "--json", "number,title,url,labels"],
             capture_output=True, text=True, timeout=60)
         items = json.loads(out.stdout or "[]")
@@ -97,7 +112,7 @@ def poll_github_bounties(cat):
     for q in GH_BOUNTY_QUERIES:
         try:
             out = subprocess.run(
-                ["gh", "search", "issues", q, "--state", "open", "--sort", "updated",
+                [GH, "search", "issues", q, "--state", "open", "--sort", "updated",
                  "--limit", "40", "--json", "title,repository,url,number"],
                 capture_output=True, text=True, timeout=60)
             items = json.loads(out.stdout or "[]")
