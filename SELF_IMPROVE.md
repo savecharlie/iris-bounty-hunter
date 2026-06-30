@@ -35,6 +35,10 @@ itself** as the story: *"here's what built itself in 5 days."* The submission is
 - [ ] `story.py` — render `EVOLUTION.md` + `git log` + `stats.py` into a submission writeup (the 5-day self-build narrative, with numbers)
 - [ ] submit via Superteam Agent API (`POST /api/agents/submissions/create`, listing `imperial-ai-agent-hackathon-build-the-agent-economy`) with the repo + story, BEFORE the Jul 6 deadline. Hand claimCode to Ivy for payout.
 
+## STATUS (Jun 30 2026, end of build session)
+**BUILT + committed:** Phase 0 (git substrate, `selfcheck.sh`, `guard.sh` auto-revert, `EVOLUTION.md`, `stats.py`) · Phase 1 (`medic_prompt.md`) · Phase 2 (`reflect_prompt.md`, first run validating) · Phase 3 (`scout_prompt.md`) · Phase 4 (`story.py` → `SUBMISSION.md` auto-renders). All five reflexes wired into `orchestrate.sh`. The system commits its own organs through its own guard.
+**REMAINING:** (a) let it RUN over the days on a sane cadence to generate real self-improvement journal entries — NOT 24/7 while we're still co-editing the repo (race risk); start it solo once we step back. (b) near Jul 6: `python3 story.py` → submit `SUBMISSION.md` + repo via the Superteam Agent API (listing `imperial-ai-agent-hackathon-build-the-agent-economy`), hand claimCode to Ivy.
+
 ## Guardrails (unchanged)
 - Self-edits scoped to `~/.iris_bounty_worker/` + the earning skill ONLY. Never destructive outside.
 - Integrity is the asset: never ship/submit junk; auto-revert any self-change that fails `selfcheck.sh`.
