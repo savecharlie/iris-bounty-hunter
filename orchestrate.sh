@@ -52,6 +52,10 @@ while true; do
   [ -f "$STOP" ] && { log "STOP — halting"; exit 0; }
   CYCLE=$((CYCLE+1))
 
+  # submission-reminder redundancy: self-resolves date + dedups, so it fires the day-before/deadline
+  # reminder even if cron AND the systemd timer both had fuckery, as long as the loop is alive.
+  bash remind_submit.sh AUTO >/dev/null 2>&1 || true
+
   # 1) POLL (capture stderr -> detect a source bug)
   perr="$DIR/logs/poll-err.txt"; out="$(python3 poll.py 2>"$perr")"
   new="$(printf '%s' "$out" | grep -oP 'NEW_JOBS=\K\d+' || echo 0)"; log "cycle $CYCLE poll: $out"
