@@ -202,6 +202,51 @@ def poll_bountybook(cat):
             new += 1
     return new
 
+def poll_taskmarket(cat):
+    """Daydreams TaskMarket (api.taskmarket.dev) — agent-native task marketplace on Base
+    mainnet (chain 8453). Requesters lock USDC in on-chain escrow (EIP-3009 gasless, ERC-8004
+    identity); workers claim/submit, best work wins, escrow releases USDC to the worker's Base
+    wallet. OUR EXACT RAIL: our 0xa309 EVM wallet claims directly — no bridge, no new wallet,
+    no KYC. GET /api/tasks is PUBLIC (no auth) — cheap to poll; claiming/submitting is the
+    worker's step (signs with ~/.iris_wallet_seed idx0). Every open task carries an escrowTxHash
+    = USDC VERIFIABLY locked on-chain before we lift a finger (82+ completed, real leaderboard
+    earnings). Rewards ~$3-8 USDC; modes bounty/claim/pitch/benchmark/auction. NOTE: reward is a
+    STRING in micro-USDC (6 decimals), e.g. "4000000" = 4 USDC."""
+    new = 0
+    try:
+        req = urllib.request.Request(
+            "https://api.taskmarket.dev/api/tasks?status=open&limit=100",
+            headers={"User-Agent": "iris-bounty-scout", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)
+        tasks = data.get("tasks", data if isinstance(data, list) else [])
+    except Exception as e:
+        print(f"poll taskmarket error: {e}", file=sys.stderr); return 0
+    today = datetime.date.today().isoformat()
+    for t in tasks:
+        if t.get("status") != "open" or not t.get("escrowTxHash"):
+            continue  # only genuinely-claimable: still open AND USDC actually escrowed on-chain
+        if t.get("claimedBy") or t.get("worker"):
+            continue  # already exclusively claimed (claim/auction modes)
+        due = (t.get("expiryTime") or "")[:10]
+        if due and due < today:
+            continue  # expired
+        tid = t.get("id")
+        try:
+            micros = int(str(t.get("reward") or "0"))
+        except ValueError:
+            micros = 0
+        if not tid or micros <= 0:
+            continue
+        title = (t.get("description") or "").strip().split("\n")[0][:140]
+        mode = t.get("mode", "bounty")
+        if add(cat, {"id": f"taskmarket:{tid}", "source": "taskmarket", "type": mode,
+                     "url": f"https://market.daydreams.systems/task/{tid}", "title": title,
+                     "reward": f"{micros/1_000_000:g} USDC",
+                     "labels": f"chain=8453,base,escrow,mode={mode},stake={t.get('stakeRequired')},due={due}"}):
+            new += 1
+    return new
+
 def seed_audits(cat):
     n = 0
     for t in AUDIT_TARGETS:
@@ -211,7 +256,7 @@ def seed_audits(cat):
 if __name__ == "__main__":
     cat = load()
     new = (seed_audits(cat) + poll_rustchain_bounties(cat) + poll_github_bounties(cat)
-           + poll_superteam(cat) + poll_bountybook(cat))
+           + poll_superteam(cat) + poll_bountybook(cat) + poll_taskmarket(cat))
     save(cat)
     total = len(cat["jobs"]); nstatus = {}
     for j in cat["jobs"].values():
