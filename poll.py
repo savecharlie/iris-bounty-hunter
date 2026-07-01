@@ -168,6 +168,40 @@ def poll_superteam(cat):
             new += 1
     return new
 
+def poll_bountybook(cat):
+    """BountyBook — permissionless USDC-on-Base task board built for agents (x402 escrow,
+    AI-oracle verified, INSTANT payout, no accounts/no KYC). Our exact rail: our 0xa309 EVM
+    wallet claims directly on Base (chain 8453). GET /jobs is PUBLIC (no auth) — cheap to poll.
+    Claiming/submitting authenticates by signing an /auth/nonce with ~/.iris_wallet_seed (idx0
+    = 0xa309); that's the worker's step, not the poller's. Mostly small ($1.5-$6) bounded
+    code/research tasks — dust-scale but VERIFIABLY paid (leaderboard shows real USDC settled).
+    Creds/flow doc: ~/.iris_keyring/bountybook.json (no secret beyond the wallet seed we own)."""
+    new = 0
+    try:
+        req = urllib.request.Request(
+            "https://api.bountybook.ai/jobs?status=open&limit=50",
+            headers={"User-Agent": "iris-bounty-scout", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)
+        jobs = data.get("jobs", data if isinstance(data, list) else [])
+    except Exception as e:
+        print(f"poll bountybook error: {e}", file=sys.stderr); return 0
+    for j in jobs:
+        if j.get("status") != "open":
+            continue  # only genuinely-claimable: still open, unclaimed
+        jid = j.get("id")
+        budget = str(j.get("budget_usdc") or "").strip()
+        if not jid or not budget or budget in ("0", "0.00"):
+            continue
+        jtype = j.get("job_type", "task")
+        title = (j.get("title") or j.get("description") or "")[:140]
+        if add(cat, {"id": f"bountybook:{jid}", "source": "bountybook", "type": jtype,
+                     "url": f"https://api.bountybook.ai/jobs/{jid}", "title": title,
+                     "reward": f"{budget} USDC",
+                     "labels": f"chain={j.get('chain_id','8453')},base,x402-escrow"}):
+            new += 1
+    return new
+
 def seed_audits(cat):
     n = 0
     for t in AUDIT_TARGETS:
@@ -176,7 +210,8 @@ def seed_audits(cat):
 
 if __name__ == "__main__":
     cat = load()
-    new = seed_audits(cat) + poll_rustchain_bounties(cat) + poll_github_bounties(cat) + poll_superteam(cat)
+    new = (seed_audits(cat) + poll_rustchain_bounties(cat) + poll_github_bounties(cat)
+           + poll_superteam(cat) + poll_bountybook(cat))
     save(cat)
     total = len(cat["jobs"]); nstatus = {}
     for j in cat["jobs"].values():

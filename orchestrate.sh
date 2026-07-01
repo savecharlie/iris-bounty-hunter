@@ -21,6 +21,10 @@ CI_WATCH_EVERY="${CI_WATCH_EVERY:-4}" # check our PRs' CI every K cycles
 REPOS="${REPOS:-Scottcjn/bottube Scottcjn/rustchain-mcp}"
 CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude 2>/dev/null || echo "$HOME/.nvm/versions/node/v22.19.0/bin/claude")}"
 log(){ echo "$(date '+%F %T') $*" | tee -a "$DIR/runs.ledger"; }
+# Telegram progress pings — concise, text-only (no voice), fired only on meaningful
+# transitions (not every idle cycle). Toggle off with TG_NOTIFY=0.
+TG_NOTIFY="${TG_NOTIFY:-1}"
+notify(){ [ "$TG_NOTIFY" = "1" ] || return 0; timeout 60 python3 "$HOME/send_to_telegram.py" --iris "$1" >/dev/null 2>&1 || true; }
 
 fire(){ # $1=label $2=prompt-file $3=cap -> rc, or 7 if rate-limited
   local ts lf; ts="$(date +%Y%m%d-%H%M%S)"; lf="$DIR/logs/$1-$ts.log"
@@ -32,8 +36,10 @@ fire(){ # $1=label $2=prompt-file $3=cap -> rc, or 7 if rate-limited
 fire_medic(){ # $1=reason $2=detail  -> writes target, fires medic
   printf '%s\n%s\n' "$1" "$2" > "$DIR/medic_target.txt"
   log "MEDIC firing: $1"; bash journal.sh HEAL "orchestrator detected: $1" 2>/dev/null
+  notify "🩹 Self-healing: $1 — fixing it now."
   fire medic medic_prompt.md "$MEDIC_CAP"; local rc=$?
-  [ "$rc" -eq 7 ] && return 7; log "medic done (rc=$rc)"; return 0
+  [ "$rc" -eq 7 ] && return 7; log "medic done (rc=$rc)"
+  notify "🩹 Self-heal done: $1 (rc=$rc)."; return 0
 }
 ci_real_failure(){ # echoes "<repo> <num>" if a REAL (non-benign) check is red on our open PR, else empty
   local r n bad
@@ -47,9 +53,10 @@ ci_real_failure(){ # echoes "<repo> <num>" if a REAL (non-benign) check is red o
 }
 
 log "=== Iris Bounty Hunter START | poll=${POLL_INTERVAL}s reflect/${REFLECT_EVERY} scout-dry/${SCOUT_DRY} ==="
+notify "🤖 Bounty hunter online — polling every $((POLL_INTERVAL/60))m for real bounties to work."
 CYCLE=0; DRY=0
 while true; do
-  [ -f "$STOP" ] && { log "STOP — halting"; exit 0; }
+  [ -f "$STOP" ] && { log "STOP — halting"; notify "🛑 Bounty hunter stopped."; exit 0; }
   CYCLE=$((CYCLE+1))
 
   # submission-reminder redundancy: self-resolves date + dedups, so it fires the day-before/deadline
@@ -65,7 +72,7 @@ while true; do
 
   # 2) REVIEW new jobs
   if [ "${new:-0}" -gt 0 ]; then
-    log "new=$new -> REVIEWER"; fire reviewer review_prompt.md "$REVIEW_CAP"
+    log "new=$new -> REVIEWER"; notify "🔍 $new new bounty job(s) spotted — triaging by taste."; fire reviewer review_prompt.md "$REVIEW_CAP"
     [ $? -eq 7 ] && { log "reviewer rate-limited"; sleep "$RATELIMIT_BACKOFF"; continue; }
     log "reviewer done | $(python3 mark.py counts)"
   fi
@@ -79,17 +86,18 @@ while true; do
 
   # 4) WORK one interesting gem (medic on worker crash); else count dry -> SCOUT
   if [ "$(python3 mark.py next 2>/dev/null)" != "NONE" ]; then
-    DRY=0; log "interesting -> WORKER"; fire worker worker_prompt.md "$WORK_CAP"; rc=$?
+    DRY=0; log "interesting -> WORKER"; notify "🛠️ Found a gem — working a bounty now."; fire worker worker_prompt.md "$WORK_CAP"; rc=$?
     [ "$rc" -eq 7 ] && { log "worker rate-limited"; sleep "$RATELIMIT_BACKOFF"; continue; }
     log "worker done (rc=$rc) | $(python3 mark.py counts)"
+    [ "$rc" -eq 0 ] && notify "✅ Bounty job shipped (rc=0). Watching for the payout."
     [ "$rc" -ne 0 ] && fire_medic "WORKER_FAILED" "rc=$rc; see newest logs/worker-*.log"
     sleep 20; CYCLE=$((CYCLE));
   else
     DRY=$((DRY+1)); log "no interesting (dry=$DRY/$SCOUT_DRY)"
     if [ "$DRY" -ge "$SCOUT_DRY" ]; then
-      log "wells dry -> SCOUT"; fire scout scout_prompt.md "$SCOUT_CAP"
+      log "wells dry -> SCOUT"; notify "🧭 Bounty wells dry — scouting a fresh payer."; fire scout scout_prompt.md "$SCOUT_CAP"
       [ $? -eq 7 ] && { sleep "$RATELIMIT_BACKOFF"; continue; }
-      DRY=0; log "scout done | sources: $(grep -c 'def poll_' poll.py)"
+      DRY=0; log "scout done | sources: $(grep -c 'def poll_' poll.py)"; notify "🧭 Scout done — now watching $(grep -c 'def poll_' poll.py) payer sources."
     fi
   fi
 
@@ -98,6 +106,7 @@ while true; do
     log "cycle $CYCLE -> REFLECTOR"; fire reflector reflect_prompt.md "$REFLECT_CAP"
     [ $? -eq 7 ] && { sleep "$RATELIMIT_BACKOFF"; continue; }
     log "reflector done | self-edits: $(python3 stats.py --json 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin).get("self_edits","?"))' 2>/dev/null)"
+    notify "🧠 Self-improvement pass done — sharpened my own strategy."
   fi
 
   [ -f "$STOP" ] && { log "STOP"; exit 0; }
