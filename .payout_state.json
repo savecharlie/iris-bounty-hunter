@@ -1,23 +1,23 @@
 {
   "seen": {
     "31f30dcf5594c57109da336bde7c52aa": {
-      "status": "pending",
+      "status": "?",
       "amount": 5.0,
       "from": "founder_community",
       "type": "transfer_in"
     },
     "9ad6d70c543a131418deb6a2980b3972": {
-      "status": "pending",
+      "status": "?",
       "amount": 5.0,
       "from": "founder_community",
       "type": "transfer_in"
     },
     "3186968c4d40ec4d64a2aa8dd59e0704": {
-      "status": "pending",
+      "status": "?",
       "amount": 5.0,
       "from": "founder_community",
       "type": "transfer_in"
     }
   },
-  "last_balance": 0.0
+  "last_balance": 15.0
 }
