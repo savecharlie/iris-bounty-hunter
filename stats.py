@@ -35,10 +35,17 @@ def compute():
     interesting = [j for j in jobs if j.get("status") == "interesting"]
     commits = [l for l in git("log", "--oneline").splitlines()]
     self_edits = [l for l in commits if any(t in l.lower() for t in ("heal", "improve", "extend", "reflect", "medic", "scout"))]
+    # Count REAL worker executions from the ledger via the two paths that run the worker:
+    #   orchestrator loop -> "<ts> worker done (rc=N)"   (has a log() timestamp prefix, match by substring)
+    #   standalone run_one.sh -> "run <TS> RESULT: ..."  (startswith 'run '; excludes the '=== ... ===' banner)
+    # (The old count matched the bare substring "RESULT", which double-counted a single run_one dry-run
+    #  [banner + result line] AND never counted orchestrated 'worker done' runs at all.)
     runs = 0
     rp = os.path.join(D, "runs.ledger")
     if os.path.exists(rp):
-        runs = sum(1 for l in open(rp) if "RESULT" in l)
+        for l in open(rp):
+            if "worker done (rc=" in l or (l.startswith("run ") and " RESULT:" in l):
+                runs += 1
     return {
         "jobs_total": len(jobs),
         "by_status": dict(by_status),
