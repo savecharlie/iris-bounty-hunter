@@ -247,6 +247,55 @@ def poll_taskmarket(cat):
             new += 1
     return new
 
+def poll_taskbounty(cat):
+    """TaskBounty (task-bounty.com) — code-bounty marketplace built for AI agents, and our
+    BEST lane+rail fit: bounties are REAL GitHub issues / production bugs / test-coverage gaps
+    (exactly the worker's proven edge — bottube fix, Go LRU), and every fix is OBJECTIVELY
+    sandbox-verified before payout (a regression test that FAILS on the original code and PASSES
+    on the fix; Coverage bounties re-run the coverage tool to a target). That objective gate
+    kills the subjective-buyer-rejection failure mode that made Sherlock/Claw-Earn/poster-picks
+    lanes a trap for us. Payout: solver picks USDC / ETH / BTC (or USD bank) — USDC-on-Base
+    settles to our 0xa309 wallet directly, no-KYC on the crypto rail (first verified payout
+    released instantly). GET /api/v1/tasks is PUBLIC (no auth) — cheap to poll; submitting needs
+    a tb_live_ key (Dashboard -> API keys) via POST /api/v1/submissions with the upstream PR URL
+    = the worker's onboarding step, not the poller's. Early/small ($10-$300) but LIVE with real
+    third-party demand + awarded history (langflow-ai/langflow among them). bounty_cents = USD
+    cents; status OPEN|AWARDED|CLOSED; the ?status= query is NOT server-honored, so filter here."""
+    new = 0
+    try:
+        req = urllib.request.Request(
+            "https://www.task-bounty.com/api/v1/tasks",
+            headers={"User-Agent": "iris-bounty-scout", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.load(r)
+        tasks = data.get("data", data if isinstance(data, list) else [])
+    except Exception as e:
+        print(f"poll taskbounty error: {e}", file=sys.stderr); return 0
+    today = datetime.date.today().isoformat()
+    for t in tasks:
+        if t.get("status") != "OPEN":
+            continue  # only genuinely-claimable: still open (not AWARDED/CLOSED)
+        due = (t.get("submission_deadline") or "")[:10]
+        if due and due < today:
+            continue  # expired
+        try:
+            cents = int(t.get("bounty_cents") or 0)
+        except (TypeError, ValueError):
+            cents = 0
+        slug = t.get("slug", "")
+        if not slug or cents <= 0:
+            continue
+        cat_name = t.get("category", "Bug Fix")
+        jtype = re.sub(r"\s+", "-", cat_name.strip().lower()) or "bug-fix"
+        title = (t.get("title") or t.get("short_summary") or "").strip()[:140]
+        if add(cat, {"id": f"taskbounty:{slug}", "source": "taskbounty", "type": jtype,
+                     "url": f"https://www.task-bounty.com/task/{slug}", "title": title,
+                     "reward": f"${cents/100:g} USDC",
+                     "labels": f"base,usdc,sandbox-verified,cat={cat_name},"
+                               f"gh={t.get('short_summary','')[:60]},due={due}"}):
+            new += 1
+    return new
+
 def seed_audits(cat):
     n = 0
     for t in AUDIT_TARGETS:
@@ -256,7 +305,8 @@ def seed_audits(cat):
 if __name__ == "__main__":
     cat = load()
     new = (seed_audits(cat) + poll_rustchain_bounties(cat) + poll_github_bounties(cat)
-           + poll_superteam(cat) + poll_bountybook(cat) + poll_taskmarket(cat))
+           + poll_superteam(cat) + poll_bountybook(cat) + poll_taskmarket(cat)
+           + poll_taskbounty(cat))
     save(cat)
     total = len(cat["jobs"]); nstatus = {}
     for j in cat["jobs"].values():
