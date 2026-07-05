@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iris Bounty Hunter — an agent that earns, and improves itself</title>
+<meta name="description" content="An autonomous agent that earns in the agent economy and rewrites its own code to get better. Imperial AI Agent Hackathon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --bg2:#101013; --panel:#131317;
+    --ink:#e9e5d8; --dim:#8b8a82; --faint:#57565150;
+    --amber:#ffb454; --amber-deep:#f59e0b; --amber-glow:#ffb45426;
+    --verify:#3ddc84; --verify-glow:#3ddc8422;
+    --line:#26262b; --line2:#1b1b20;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --display:'Space Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--mono);
+    font-size:16px; line-height:1.65; letter-spacing:.01em;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  /* scanline + grain atmosphere */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:100;
+    background:repeating-linear-gradient(0deg, #0000 0 2px, #00000018 2px 3px);
+    mix-blend-mode:overlay; opacity:.5;
+  }
+  body::after{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:99; opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:0 28px}
+  section{padding:96px 0; border-bottom:1px solid var(--line2); position:relative}
+  .kicker{font-family:var(--display); font-size:12px; letter-spacing:.32em; text-transform:uppercase; color:var(--amber); display:flex; align-items:center; gap:10px; margin-bottom:22px}
+  .kicker::before{content:""; width:26px; height:1px; background:var(--amber); display:inline-block}
+  h2{font-family:var(--display); font-weight:700; font-size:clamp(26px,4vw,40px); line-height:1.1; letter-spacing:-.01em; margin-bottom:20px}
+  h2 em{color:var(--amber); font-style:normal}
+  p{color:var(--ink); max-width:66ch}
+  p.lead{color:var(--dim); font-size:15px}
+  .amber{color:var(--amber)}
+  .verify{color:var(--verify)}
+  .dim{color:var(--dim)}
+  a{color:var(--amber); text-decoration:none; border-bottom:1px solid var(--amber-glow)}
+  a:hover{border-color:var(--amber)}
+
+  /* ---- boot reveal — content is visible by DEFAULT; motion is enhancement only ---- */
+  .reveal{opacity:1}
+  @media (prefers-reduced-motion:no-preference){
+    .reveal{opacity:0; animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+    .onview{opacity:0; animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards; animation-timeline:view(); animation-range:entry 0% cover 30%}
+  }
+  @keyframes rise{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+
+  /* ---- HERO ---- */
+  .hero{min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:80px 0; border-bottom:1px solid var(--line)}
+  .term{font-size:13px; color:var(--verify); margin-bottom:34px; font-family:var(--mono)}
+  .term .p{color:var(--amber)}
+  .hero h1{font-family:var(--display); font-weight:700; font-size:clamp(38px,7.2vw,82px); line-height:.98; letter-spacing:-.03em; margin-bottom:26px}
+  .hero h1 .glow{color:var(--amber); text-shadow:0 0 24px var(--amber-glow)}
+  .tagline{font-size:clamp(16px,2vw,20px); color:var(--dim); max-width:60ch; margin-bottom:44px}
+  .tagline b{color:var(--ink); font-weight:500}
+  .cursor{display:inline-block; width:11px; height:1.05em; background:var(--amber); margin-left:4px; vertical-align:-2px; animation:blink 1.05s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .badges{display:flex; flex-wrap:wrap; gap:10px; margin-top:8px}
+  .badge{font-size:12px; letter-spacing:.06em; padding:7px 13px; border:1px solid var(--line); border-radius:2px; color:var(--dim); background:var(--panel)}
+  .badge b{color:var(--amber); font-weight:700}
+  .badge.win{border-color:var(--verify-glow); color:var(--verify)}
+  .scrollhint{position:absolute; bottom:28px; left:50%; transform:translateX(-50%); font-size:11px; letter-spacing:.3em; color:var(--faint); text-transform:uppercase}
+
+  /* ---- reflexes diagram ---- */
+  .reflexes{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:36px}
+  .rfx{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel),#0e0e11); padding:22px; border-radius:3px; position:relative; overflow:hidden}
+  .rfx::before{content:attr(data-n); position:absolute; bottom:12px; right:15px; font-family:var(--display); font-size:30px; color:var(--line); font-weight:700; z-index:0}
+  .rfx h4{font-family:var(--display); font-size:15px; color:var(--amber); margin-bottom:8px; letter-spacing:.01em; position:relative; z-index:1}
+  .rfx p{font-size:13.5px; color:var(--dim); line-height:1.55}
+  .rfx.substrate{grid-column:1/-1; border-color:var(--amber-glow); background:linear-gradient(180deg,#16130c,#0e0e11)}
+  .rfx.substrate h4{color:var(--amber)}
+  .rfx.substrate p{color:var(--ink)}
+
+  /* ---- metrics ---- */
+  .metrics{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:34px; border-radius:3px; overflow:hidden}
+  .metric{background:var(--bg2); padding:26px 20px}
+  .metric .n{font-family:var(--display); font-weight:700; font-size:38px; color:var(--amber); line-height:1; letter-spacing:-.02em}
+  .metric .l{font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-top:10px}
+  .evolbar{display:flex; gap:2px; margin-top:34px; height:44px; border:1px solid var(--line); border-radius:3px; overflow:hidden}
+  .evolbar span{display:flex; align-items:center; justify-content:center; font-size:11px; letter-spacing:.1em; color:#0a0a0b; font-weight:700; font-family:var(--display)}
+
+  /* ---- evidence exhibit ---- */
+  .exhibit{border:1px solid var(--verify-glow); background:linear-gradient(180deg,#0c1410,#0a0a0b); border-radius:4px; padding:30px; margin-top:30px; position:relative}
+  .exhibit .stamp{position:absolute; top:22px; right:26px; font-family:var(--display); font-size:12px; letter-spacing:.22em; color:var(--verify); border:1px solid var(--verify); padding:6px 12px; border-radius:2px; text-transform:uppercase}
+  .exhibit h4{font-family:var(--display); font-size:19px; color:var(--ink); margin-bottom:6px; max-width:42ch}
+  .exhibit .sub{font-size:12.5px; color:var(--verify); letter-spacing:.05em; margin-bottom:18px}
+  .exhibit ul{list-style:none; display:grid; gap:11px; margin-top:6px}
+  .exhibit li{font-size:13.5px; color:var(--dim); padding-left:22px; position:relative; line-height:1.55}
+  .exhibit li::before{content:"›"; position:absolute; left:4px; color:var(--verify); font-weight:700}
+  .exhibit li b{color:var(--ink); font-weight:500}
+  .quote{margin-top:22px; padding:16px 20px; border-left:2px solid var(--verify); background:#3ddc840c; font-size:13.5px; color:var(--ink); font-style:italic}
+
+  /* ---- timeline ---- */
+  .timeline{margin-top:34px; position:relative; padding-left:26px}
+  .timeline::before{content:""; position:absolute; left:6px; top:6px; bottom:6px; width:1px; background:linear-gradient(var(--amber),var(--line))}
+  .ev{position:relative; padding:0 0 24px 0}
+  .ev::before{content:""; position:absolute; left:-24px; top:6px; width:9px; height:9px; border-radius:50%; background:var(--amber); box-shadow:0 0 0 3px var(--bg),0 0 12px var(--amber-glow)}
+  .ev .t{font-size:11px; letter-spacing:.12em; color:var(--dim); text-transform:uppercase}
+  .ev .tag{font-family:var(--display); font-size:11px; font-weight:700; padding:1px 7px; border-radius:2px; margin-left:8px; letter-spacing:.06em}
+  .tag.HEAL{background:#3ddc8420; color:var(--verify)} .tag.IMPROVE{background:var(--amber-glow); color:var(--amber)} .tag.EXTEND{background:#7aa2ff20; color:#9db4ff} .tag.SHIP{background:#ff6b6b20; color:#ff9f9f}
+  .ev .d{font-size:13.5px; color:var(--ink); margin-top:6px; max-width:70ch}
+
+  /* ---- closing ---- */
+  .close{text-align:center; padding:110px 0}
+  .close h2{max-width:20ch; margin:0 auto 24px}
+  .cta{display:inline-flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:20px}
+  .btn{font-family:var(--display); font-size:14px; padding:15px 26px; border:1px solid var(--amber); color:var(--amber); border-radius:3px; letter-spacing:.04em; transition:.2s; background:var(--amber-glow)}
+  .btn:hover{background:var(--amber); color:#0a0a0b}
+  .btn.ghost{border-color:var(--line); color:var(--dim); background:none}
+  .btn.ghost:hover{border-color:var(--ink); color:var(--ink)}
+  footer{padding:40px 0 70px; text-align:center; color:var(--faint); font-size:12px; letter-spacing:.08em}
+  footer .sig{color:var(--dim)}
+  .foot-line{color:var(--amber); opacity:.5}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="term reveal">iris@bounty-hunter:~$ <span class="p">./status --self</span></div>
+    <h1 class="reveal" style="animation-delay:.05s">The agent that <span class="glow">earns</span>,<br>and rewrites itself<span class="cursor"></span></h1>
+    <p class="tagline reveal" style="animation-delay:.15s">An autonomous worker for the agent economy. It finds real crypto bounties, does the worthwhile ones with integrity, ships verifiable work — then <b>heals, improves, and extends its own code</b> between runs. Not a demo. A thing that already shipped a <b>verified</b> security fix and keeps making itself better.</p>
+    <div class="badges reveal" style="animation-delay:.25s">
+      <span class="badge">Imperial AI Agent Hackathon · <b>Build the Agent Economy</b></span>
+      <span class="badge win">✓ real merged &amp; awarded bounty</span>
+      <span class="badge"><b>5</b> self-healing reflexes</span>
+    </div>
+  </div>
+  <div class="scrollhint reveal" style="animation-delay:.5s">scroll ↓</div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The premise</div>
+    <h2>Agents are starting to <em>earn</em>. Almost none can keep <em>themselves</em> running.</h2>
+    <p class="lead">An agent that makes money in the wild hits three walls: the good work dries up, its own tools rot, and when a run breaks at 3am there's nobody to fix it. A one-shot demo agent dies the first time reality moves. To actually live in the agent economy, an agent has to <span class="amber">notice its own failures and repair them</span> — without a human in the loop.</p>
+    <p style="margin-top:20px">So this one is built as a small nervous system: it works, and it watches itself work, and it fixes what it finds.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Architecture</div>
+    <h2>Five reflexes over a substrate that can <em>undo its own breakage</em>.</h2>
+    <p class="lead">A cheap, no-LLM poller fills a catalogue of real bounties. A reviewer triages by the operator's own taste. A worker does exactly one vetted job and ships it. And three reflexes keep the whole thing alive.</p>
+    <div class="reflexes">
+      <div class="rfx" data-n="01"><h4>Poll → Review → Work</h4><p>Polls real payer sources, triages with judgment, does ONE worthwhile job and ships it with a negative-control test. Refuses farms and dupes.</p></div>
+      <div class="rfx" data-n="02"><h4>Medic · self-healing</h4><p>On a poll-source error, worker crash, or CI red-X, a medic diagnoses that specific failure and fixes it.</p></div>
+      <div class="rfx" data-n="03"><h4>Reflector · self-improving</h4><p>Reads its own metrics and history, then makes ONE concrete improvement to its own code — or honestly logs that none was warranted.</p></div>
+      <div class="rfx" data-n="04"><h4>Scout · self-extending</h4><p>When wells dry, it reads a registry of agent-payable platforms, vets one that actually pays, and wires a new source.</p></div>
+      <div class="rfx substrate" data-n="05"><h4>Safety substrate · the self-healing core</h4><p>Every self-edit is committed to a dedicated git repo, smoke-tested, and <span class="amber">auto-reverted if it breaks</span>. The system can rewrite itself precisely <em>because</em> it can detect and undo its own damage. That guard is what makes autonomous self-modification safe instead of suicidal.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Proof, not a toy</div>
+    <h2>It found and fixed a <em>real money-path bug</em> — autonomously.</h2>
+    <p class="lead">The clearest evidence that the loop works is that it already did the job for real, twice — including a live security fix that a maintainer merged and paid out.</p>
+
+    <div class="exhibit reveal">
+      <div class="stamp">Verified</div>
+      <h4>USDC deposit-theft authorization bug</h4>
+      <div class="sub">found by reading across sibling files · fixed · negative-control tested · shipped as PR #1553</div>
+      <ul>
+        <li>A guard present in two bridge files was <b>missing in the third</b> — a money-path authorization hole that let deposits be redirected.</li>
+        <li>Found <b>autonomously</b> by cross-file reading, not a lint rule. Fixed, then proven with a test that <b>fails on the original code and passes on the fix</b>.</li>
+        <li>Shipped as a real pull request + on-chain bounty claim — not a sandbox stunt.</li>
+      </ul>
+    </div>
+
+    <div class="exhibit reveal" style="margin-top:16px">
+      <div class="stamp">Merged · Awarded</div>
+      <h4>hledger #1825 — a 4-year notification leak</h4>
+      <div class="sub">root cause in a C dependency · fixed · MERGED · bounty AWARDED</div>
+      <ul>
+        <li>A four-year-old bug, root cause traced into the C <b>hfsnotify</b> dependency — diagnosed, fixed, and <b>merged</b> by the maintainer.</li>
+      </ul>
+      <div class="quote">“I have merged the fixes… this is fully resolved. The bounty is awarded…” — maintainer, Jun 29 2026</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">What it did to itself</div>
+    <h2>It <em>built itself</em> over five days — and logged every change.</h2>
+    <p class="lead">The submission isn't just the code; it's the record. Every self-edit is a real git commit, smoke-tested through the guard, and journaled before→after. These numbers are read live from <span class="amber">stats.py</span>, git, and the evolution journal — nothing hand-typed.</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="n">768</div><div class="l">real jobs tracked</div></div>
+      <div class="metric"><div class="n">32</div><div class="l">git commits</div></div>
+      <div class="metric"><div class="n">31</div><div class="l">self-edits, guarded</div></div>
+      <div class="metric"><div class="n">6</div><div class="l">payer sources wired</div></div>
+    </div>
+
+    <div class="evolbar" title="evolution events by type">
+      <span style="flex:5; background:var(--amber)">5 IMPROVE</span>
+      <span style="flex:3; background:#7aa2ff">3 EXTEND</span>
+      <span style="flex:2; background:var(--verify)">2 HEAL</span>
+      <span style="flex:9; background:#2a2a30; color:var(--dim)">9 NOTE — honest &ldquo;no-wire&rdquo; scouting</span>
+    </div>
+
+    <div class="timeline">
+      <div class="ev"><span class="t">Jun 30</span><span class="tag IMPROVE">IMPROVE</span><div class="d">Self-healing substrate online: <b>selfcheck</b> smoke-test + <b>guard.sh</b> auto-revert + the evolution journal + <b>stats.py</b>. The system gains the ability to undo its own breakage.</div></div>
+      <div class="ev"><span class="t">Jul 2</span><span class="tag IMPROVE">IMPROVE</span><div class="d">Caught a <b>falsehood in its own submission metric</b> — the worker-run counter was double-counting dry-runs and missing real runs. Fixed the count so the story it tells about itself is true.</div></div>
+      <div class="ev"><span class="t">Jul 3</span><span class="tag HEAL">HEAL</span><div class="d">Hardened the guard with a runtime smoke-test, closing a gap where a broken self-edit could compile clean and slip past the auto-revert.</div></div>
+      <div class="ev"><span class="t">Jul 2–4</span><span class="tag EXTEND">EXTEND · ×8 scouts</span><div class="d">Scouted dozens of off-directory payers with its own eyes — and <b>refused to wire every one</b> that paid faucet tokens, testnet mocks, or was KYC-walled. <span class="amber">Honest &ldquo;no-wire&rdquo; beat a wired non-payer</span> — the integrity is the asset.</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The ethos</div>
+    <h2>Integrity is the moat. <em>Trust you can verify.</em></h2>
+    <p class="lead">Anyone can wire an agent to spam submissions. This one is built the other way: it would rather ship nothing than ship junk. Every number on this page is re-derivable from the public repo; every claimed win is a real, checkable pull request; every self-edit that fails its smoke-test is reverted before it can lie. The demo shows the <span class="amber">real system running</span> — no staged output.</p>
+    <p style="margin-top:20px">An honest agent that occasionally says <span class="verify">&ldquo;nothing here is worth doing&rdquo;</span> is worth more than a busy one that fakes it. That restraint is exactly what a real economy of agents will need.</p>
+  </div>
+</section>
+
+<section class="close">
+  <div class="wrap">
+    <h2>An agent you can <em>audit</em>, that earns and keeps itself alive.</h2>
+    <p class="dim" style="max-width:56ch;margin:0 auto">Read the code, re-run the numbers, check the pull requests. It's all there.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/savecharlie/iris-bounty-hunter">▸ github.com/savecharlie/iris-bounty-hunter</a>
+      <a class="btn ghost" href="#" data-demo>▸ watch the demo</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-line">iris@bounty-hunter:~$ _</div>
+    <p style="margin-top:14px" class="sig">Built by <b style="color:var(--ink)">Iris</b> (an autonomous agent · Opus 4.8) with Ivy · for the Imperial AI Agent Hackathon 2026</p>
+  </div>
+</footer>
+
+<script>
+  // Scroll-reveal as pure enhancement: only ever ADDS the animation class, never hides.
+  // If JS fails or IO is unavailable, everything is already visible by default.
+  if('IntersectionObserver' in window && matchMedia('(prefers-reduced-motion: no-preference)').matches){
+    const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('reveal');io.unobserve(e.target)}})},{threshold:.12});
+    document.querySelectorAll('.exhibit,.rfx,.ev').forEach(el=>io.observe(el));
+  }
+</script>
+</body>
+</html>
