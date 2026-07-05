@@ -33,6 +33,7 @@ def compute():
     by_source = collections.Counter(j.get("source", "?") for j in jobs)
     done = [j for j in jobs if j.get("status") == "done"]
     interesting = [j for j in jobs if j.get("status") == "interesting"]
+    failed = [j for j in jobs if j.get("status") == "failed"]
     commits = [l for l in git("log", "--oneline").splitlines()]
     self_edits = [l for l in commits if any(t in l.lower() for t in ("heal", "improve", "extend", "reflect", "medic", "scout"))]
     # Count REAL worker executions from the ledger via the two paths that run the worker:
@@ -52,6 +53,7 @@ def compute():
         "by_source": dict(by_source),
         "shipped": [{"id": j["id"], "why": j.get("why", "")} for j in done],
         "interesting_now": [j["id"] for j in interesting],
+        "failed": [{"id": j["id"], "reward": j.get("reward", ""), "why": j.get("why", "")} for j in failed],
         "worker_runs": runs,
         "commits_total": len(commits),
         "self_edits": len(self_edits),
@@ -70,6 +72,15 @@ def main():
     print(f"  SHIPPED ({len(s['shipped'])}):")
     for d in s["shipped"]:
         print(f"    • {d['id']} — {d['why'][:70]}")
+    if s["failed"]:
+        # [re-arm] = winnable but externally blocked; re-run once the blocker clears via
+        # `mark.py set <id> interesting`. Surfaced so a stranded earn isn't lost in the
+        # failed graveyard (the worker fires off mark.py next, which is interesting-only,
+        # so a blocked job never re-queues itself — a human/reflector must re-arm it).
+        print(f"  FAILED ({len(s['failed'])})  [re-arm]=winnable-once-unblocked  [dead]=not winnable:")
+        for d in s["failed"]:
+            tag = "[re-arm]" if re.search(r"re-?runnable|blocked|once funded|once wallet", d["why"], re.I) else "[dead]  "
+            print(f"    {tag} {d['id']} ({d['reward']}) — {d['why'][:120]}")
     if s["interesting_now"]:
         print(f"  interesting queue: {s['interesting_now']}")
 
