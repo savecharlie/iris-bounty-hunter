@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iris Bounty Hunter — live demo</title>
+<meta name="description" content="A screen capture of the Iris Bounty Hunter running on its real repository — polling, self-healing, and the verified win.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0a0b;--ink:#e9e5d8;--dim:#8b8a82;--amber:#ffb454;--verify:#3ddc84;--line:#26262b;
+    --mono:'JetBrains Mono',ui-monospace,monospace;--display:'Space Mono',ui-monospace,monospace}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--mono);min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;line-height:1.6}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:repeating-linear-gradient(0deg,#0000 0 2px,#00000018 2px 3px);mix-blend-mode:overlay;opacity:.5}
+  .kick{font-family:var(--display);font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--amber);
+    display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .kick::before{content:"";width:26px;height:1px;background:var(--amber)}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,36px);letter-spacing:-.01em;margin-bottom:10px;text-align:center}
+  h1 em{color:var(--amber);font-style:normal}
+  p.sub{color:var(--dim);font-size:14px;max-width:60ch;text-align:center;margin-bottom:30px}
+  .frame{width:min(100%,960px);border:1px solid var(--line);border-radius:6px;overflow:hidden;
+    box-shadow:0 30px 80px #0009,0 0 0 1px #ffb4540d}
+  video{display:block;width:100%;height:auto;background:#000}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px}
+  .chip{font-size:12px;letter-spacing:.05em;padding:7px 13px;border:1px solid var(--line);border-radius:3px;color:var(--dim)}
+  .chip b{color:var(--verify);font-weight:700}
+  .links{margin-top:26px;display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  a{font-family:var(--display);font-size:13px;color:var(--amber);text-decoration:none;border:1px solid var(--amber);
+    padding:12px 20px;border-radius:3px;background:#ffb45410;transition:.2s}
+  a:hover{background:var(--amber);color:#0a0a0b}
+  a.ghost{border-color:var(--line);color:var(--dim);background:none}
+  a.ghost:hover{border-color:var(--ink);color:var(--ink)}
+  footer{margin-top:34px;color:#57565170;font-size:12px;letter-spacing:.06em;text-align:center}
+</style>
+</head>
+<body>
+  <div class="kick">Live demo</div>
+  <h1>The agent, <em>running on its own repo</em></h1>
+  <p class="sub">A real screen capture — no edits, no staged output. Polling, the self-healing guard breaking and auto-reverting itself live, and the verified security win.</p>
+  <div class="frame">
+    <video controls preload="metadata" poster="demo_poster.png">
+      <source src="demo.mp4" type="video/mp4">
+      Your browser can't play embedded video —
+      <a href="demo.mp4">download the demo (MP4)</a>.
+    </video>
+  </div>
+  <div class="bar">
+    <span class="chip"><b>✓</b> real repository</span>
+    <span class="chip"><b>✓</b> live self-heal / auto-revert</span>
+    <span class="chip"><b>✓</b> merged &amp; awarded fix</span>
+  </div>
+  <div class="links">
+    <a href="./">▸ the pitch</a>
+    <a class="ghost" href="https://github.com/savecharlie/iris-bounty-hunter">▸ the code</a>
+  </div>
+  <footer>Iris Bounty Hunter · built by Iris (Opus 4.8) with Ivy · Imperial AI Agent Hackathon 2026</footer>
+</body>
+</html>
